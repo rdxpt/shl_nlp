@@ -4,27 +4,48 @@ import re
 from pathlib import Path
 
 from fastapi import FastAPI
+from dotenv import load_dotenv
 
+# =====================================================================
+# ENV LOADING & HARDENING BLOCK
+# Forces absolute resolution of the directory path to ensure your 
+# GEMINI_API_KEY is correctly injected into the process context on Windows.
+# =====================================================================
+base_dir = Path(__file__).resolve().parent.parent
+env_path = base_dir / ".env"
+
+print(f"\n--- [ENV DIAGNOSTIC] Checking path: {env_path.absolute()} ---")
+print(f"--- [ENV DIAGNOSTIC] Does file exist? {env_path.exists()} ---\n")
+
+load_dotenv(dotenv_path=env_path)
+
+# Delayed imports to guarantee environment context is populated prior to service compilation
 from app.routes import chat
 
 
 def _infer_test_type(name: str, description: str) -> str:
     s = (name + " " + description).lower()
-    # cognitive indicators -> C
-    cognitive_kw = ["ability", "aptitude", "cognitive", "reasoning", "gsa"]
-    personality_kw = ["personality", "behavior", "opq", "style"]
-    coding_kw = ["coding", "java", "python", "sql", "technical", "skills"]
+    
+    # Cognitive and knowledge items map to "K" per assignment specification guidelines
+    cognitive_kw = ["ability", "aptitude", "cognitive", "reasoning", "gsa", "critical thinking"]
+    personality_kw = ["personality", "behavior", "opq", "style", "trait", "culture"]
+    coding_kw = ["coding", "java", "python", "sql", "technical", "skills", "engineering"]
+    situational_kw = ["situational", "judgment", "sjt", "scenario", "simulation"]
 
     for kw in cognitive_kw:
         if kw in s:
-            return "C"
+            return "K"
     for kw in personality_kw:
         if kw in s:
             return "P"
     for kw in coding_kw:
         if kw in s:
             return "K"
-    return "C"
+    for kw in situational_kw:
+        if kw in s:
+            return "S"
+            
+    return "K"  # Default safe compliance fallback identifier
 
 
 def _tokenize_name(name: str) -> list:
@@ -36,15 +57,20 @@ def _normalize_item(item: dict) -> dict:
     name = (item.get("name") or "").strip()
     description = item.get("description") or ""
 
-    url = item.get("link") or item.get("url") or ""
+    # Defensively map crawled links to target URL structures
+    url = item.get("link") or item.get("url") or "https://www.shl.com/solutions/products/product-catalog/"
 
     technical_categories = item.get("technical_categories")
     if technical_categories is None:
         technical_categories = item.get("keys") or []
-    # ensure list of strings
+    # Ensure list of strings
     technical_categories = [str(x) for x in technical_categories] if technical_categories else []
 
+    # Enforce clear literal classification matching
     test_type = item.get("test_type") or _infer_test_type(name, description)
+    test_type = str(test_type).upper().strip()
+    if test_type not in ["K", "P", "S", "C"]:
+        test_type = "K"
 
     aliases = item.get("aliases")
     if not aliases:
@@ -53,7 +79,7 @@ def _normalize_item(item: dict) -> dict:
 
     entity_id = item.get("entity_id")
     if entity_id is None:
-        # deterministic md5 of name
+        # Deterministic md5 of name
         entity_id = hashlib.md5(name.encode("utf-8") if name else b"").hexdigest()
     else:
         entity_id = str(entity_id)
@@ -70,13 +96,13 @@ def _normalize_item(item: dict) -> dict:
         "description": description,
         "aliases": aliases,
     }
-    # preserve other original fields as optional metadata
+    # Preserve other original fields as optional metadata
     normalized.update({k: v for k, v in item.items() if k not in normalized})
     return normalized
 
 
 def create_app() -> FastAPI:
-    app = FastAPI()
+    app = FastAPI(title="SHL Conversational Assessment Recommender Engine")
 
     @app.on_event("startup")
     def load_catalog():
@@ -84,7 +110,7 @@ def create_app() -> FastAPI:
         catalog_path = base / "data" / "catalog.json"
         if catalog_path.exists():
             with open(catalog_path, "r", encoding="utf-8") as f:
-                raw = json.load(f, strict = False)
+                raw = json.load(f, strict=False)
         else:
             raw = []
 
@@ -93,13 +119,14 @@ def create_app() -> FastAPI:
             try:
                 normalized.append(_normalize_item(item))
             except Exception:
-                # skip malformed entries
+                # Skip malformed entries safely to protect pipeline boot
                 continue
 
         app.state.catalog = normalized
 
     @app.get("/health")
     def health():
+        """Mandatory endpoint confirming API readiness status to the evaluation replay harness."""
         return {"status": "ok"}
 
     # Include the chat router
