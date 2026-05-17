@@ -17,7 +17,13 @@ env_path = base_dir / ".env"
 print(f"\n--- [ENV DIAGNOSTIC] Checking path: {env_path.absolute()} ---")
 print(f"--- [ENV DIAGNOSTIC] Does file exist? {env_path.exists()} ---\n")
 
-load_dotenv(dotenv_path=env_path)
+load_dotenv(dotenv_path=env_path, override=True)
+
+# Verify keys loaded correctly
+import os
+_keys_raw = os.environ.get("GEMINI_API_KEYS", "NOT FOUND")
+_key_count = len([k for k in _keys_raw.split(",") if k.strip()]) if _keys_raw != "NOT FOUND" else 0
+print(f"--- [KEY DIAGNOSTIC] GEMINI_API_KEYS found: {_keys_raw != 'NOT FOUND'}, key count: {_key_count} ---\n")
 
 # Delayed imports to guarantee environment context is populated prior to service compilation
 from app.routes import chat
@@ -72,10 +78,17 @@ def _normalize_item(item: dict) -> dict:
     if test_type not in ["K", "P", "S", "C"]:
         test_type = "K"
 
-    aliases = item.get("aliases")
-    if not aliases:
-        aliases = _tokenize_name(name)
-    aliases = [str(a) for a in aliases]
+    # HARDENING LAYER: Build explicit alias lists containing common shortened acronyms
+    aliases = item.get("aliases") or []
+    aliases = [str(a).lower().strip() for a in aliases]
+    
+    # Extract any alphanumeric short codes present in parentheses like (OPQ32r)
+    for match in re.findall(r"\((.*?)\)", name.lower()):
+        aliases.extend(match.split())
+    
+    # Always include baseline name tokens for backup alignment
+    aliases.extend(_tokenize_name(name))
+    aliases = list(set([a for a in aliases if a]))
 
     entity_id = item.get("entity_id")
     if entity_id is None:

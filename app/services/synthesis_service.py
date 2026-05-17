@@ -1,13 +1,12 @@
 from typing import List, Literal
-import os  # FIXED: Added missing import module for environmental consistency
 import re
 import logging
 
 import google.generativeai as genai
 
 from app.core.api_models import Message
-from app.core.config import get_settings
 from app.core.state_models import FeatureTracker
+from app.services.gemini_key_manager import get_key_manager, GeminiKeysExhausted
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +38,11 @@ def _build_system_instructions(mode: str) -> str:
         )
     if mode == "comparison":
         return base + (
-            "Synthesize a grounded, side-by-side comparison of the requested SHL assessments using ONLY the provided database records. Do not invent facts."
+            "Synthesize a clear, structured comparison of the requested SHL assessments using the provided database records. "
+            "Compare them across all available dimensions: duration, job levels, adaptive vs non-adaptive, test type, skills measured, and intended audience. "
+            "Even if descriptions are similar, identify meaningful distinctions in duration, difficulty level, job level targeting, or scope. "
+            "If two assessments appear nearly identical based on records, say so honestly but still highlight any subtle differences. "
+            "Do not invent facts, but do reason and infer from the data provided."
         )
     if mode == "recommendation":
         return base + (
@@ -65,36 +68,22 @@ def synthesize(
     Falls back to a deterministic, safe local message if the SDK call fails or if
     the system instructions are bypassed.
     """
-    # HARDENED FIX: Read from the system environment map directly to protect rate limits
-    api_key = os.environ.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
-
-    # Secondary Lookup Fallback: Query settings if direct process map is barren
-    if not api_key:
-        try:
-            settings = get_settings()
-            api_key = getattr(settings, "GEMINI_API_KEY", None) or getattr(settings, "gemini_api_key", None)
-        except Exception:
-            pass
-
     try:
-        if api_key:
-            genai.configure(api_key=api_key)
-        else:
-            raise ValueError("GEMINI_API_KEY could not be resolved from active environment context or fallback settings.")
-
         system_instructions = _build_system_instructions(mode)
-        
-        # FIXED: Model name path synchronized to valid production version
-        model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash",
-            system_instruction=system_instructions
-        )
 
         # Build database grounding payload if records exist
         context_payload = ""
         if retrieved_records:
             context_payload = "\n\n".join([
-                f"Record {i+1}: Name: {r.get('name')}; Type: {r.get('test_type')}; Description: {r.get('description')}"
+                (
+                    f"Record {i+1}: Name: {r.get('name')}; "
+                    f"Type: {r.get('test_type')}; "
+                    f"Duration: {r.get('duration') or 'Not specified'}; "
+                    f"Adaptive: {r.get('adaptive', 'no')}; "
+                    f"Job Levels: {', '.join(r.get('job_levels') or []) or 'Not specified'}; "
+                    f"Keys: {', '.join(r.get('technical_categories') or r.get('keys') or [])}; "
+                    f"Description: {r.get('description')}"
+                )
                 for i, r in enumerate(retrieved_records)
             ])
 
@@ -114,27 +103,25 @@ def synthesize(
         if context_payload:
             prompt_input += "\n\nDatabaseRecords (Trusted Context Data):\n" + context_payload
 
-        response = model.generate_content(
+        manager = get_key_manager()
+        text = manager.generate_with_rotation(
+            model_name="gemini-2.5-flash",
+            system_instruction=system_instructions,
             contents=prompt_input,
             generation_config=genai.GenerationConfig(
-                temperature=0.0,
-                max_output_tokens=300,
-            )
+                temperature=0.4 if mode in ("comparison", "recommendation") else 0.0,
+                max_output_tokens=1024 if mode in ("comparison", "recommendation") else 300,
+            ),
         )
 
-        # Extract text content defensively
-        text = None
-        if response and hasattr(response, "text") and response.text:
-            text = response.text
-
         if text:
-            # Clean out any accidental URL anomalies
             text = re.sub(r"https?://\S+", "", text)
             return text.strip()
 
+    except GeminiKeysExhausted as exc:
+        logger.error("‼️  All Gemini keys exhausted in synthesize (%s): %s", mode, exc)
     except Exception as exc:
-        logger.warning("Synthesis pass failed, falling back to deterministic layout: %s", exc)
-        pass
+        logger.error("‼️  synthesize (%s) FAILED, using fallback. Reason: %s", mode, exc, exc_info=True)
 
     # FIXED: Hardened context-aligned fallback messages matching the individual SHL catalog constraints
     retrieved = [_sanitize_record(r) for r in (retrieved_records or [])]

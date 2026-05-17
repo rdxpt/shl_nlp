@@ -1,4 +1,3 @@
-import os  # FIXED: Included missing core module import
 import json
 import logging
 from typing import List
@@ -6,8 +5,8 @@ from typing import List
 import google.generativeai as genai
 
 from app.core.api_models import Message
-from app.core.config import get_settings
 from app.core.state_models import FeatureTracker
+from app.services.gemini_key_manager import get_key_manager, GeminiKeysExhausted
 
 logger = logging.getLogger(__name__)
 
@@ -36,15 +35,17 @@ def _build_system_prompt() -> str:
         "- If either flag is true, set context_complete to false.\n\n"
         
         "2. COMPARISON MODE (wants_comparison & comparison_targets):\n"
-        "- Set `wants_comparison` to true ONLY if the user explicitly asks to compare, differentiate, or understand the contrast between distinct SHL assessment products.\n"
-        "- If `wants_comparison` is true, extract the exact names or abbreviations of the products the user wants compared into the `comparison_targets` array (e.g., if asked about 'OPQ and GSA', extract ['OPQ', 'GSA']).\n\n"
+        "- Set `wants_comparison` to true if the user explicitly asks to compare, contrast, differentiate, explain the differences between, "
+        "or list the distinctions between specific SHL assessment products (e.g., if asked 'contrast the differences between OPQ32 and GSA', set wants_comparison to true).\n"
+        "- If `wants_comparison` is true, extract the exact names, abbreviations, or codes of the products the user wants compared into the `comparison_targets` array (e.g., ['OPQ32', 'GSA']).\n"
+        "- CRITICAL RULE: If `wants_comparison` is true, set `primary_missing_slot` to 'none' because no recommendation slots are required for a comparison flow.\n\n"
         
         "3. SLOT EXTRACTION & CONTEXT TRACKING:\n"
         "- Accumulate requirements across the entire history. Keep slots provided in earlier turns unless explicitly overridden by the user.\n"
         "- `target_role`: Extract the specific job profile or technical domain mentioned (e.g., 'Java Developer', 'Project Manager', 'Accounts Payable clerk').\n"
         "- `seniority_level`: Extract the tier of experience or seniority mentioned (e.g., 'Graduate', 'Mid-level', 'Executive', '4 years experience').\n"
         "- Set `context_complete` to true ONLY when you have non-null values for BOTH `target_role` and `seniority_level` (or when the conversation hit a hard limit threshold and must terminate).\n"
-        "- If context_complete is true, set `primary_missing_slot` to 'none'. Otherwise, set it to the specific slot name that is missing first.\n\n"
+        "- If context_complete is true OR if wants_comparison is true, set `primary_missing_slot` to 'none'. Otherwise, set it to the specific slot name that is missing first.\n\n"
         
         "Rigorously follow these constraints. Do NOT generate natural language assistant replies, recommendations, or markdown formatting."
     )
@@ -61,64 +62,42 @@ def _format_transcript(messages: List[Message]) -> str:
 
 def extract_system_state(messages: List[Message]) -> FeatureTracker:
     """Extract evaluator state from the full transcript using Gemini 2.5 Flash."""
-    # Primary Lookup: Read from the system environment map directly to protect rate limits
-    api_key = os.environ.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
-
-    # Secondary Lookup Fallback: Query settings if direct process map is barren
-    if not api_key:
-        try:
-            settings = get_settings()
-            api_key = getattr(settings, "GEMINI_API_KEY", None) or getattr(settings, "gemini_api_key", None)
-        except Exception:
-            pass
-
-    try:
-        if api_key:
-            genai.configure(api_key=api_key)
-        else:
-            raise ValueError("GEMINI_API_KEY could not be resolved from active environment context or fallback settings.")
-    except Exception as exc:
-        logger.warning("Failed to configure GenAI SDK: %s", exc)
-
     system_prompt = _build_system_prompt()
     transcript = _format_transcript(messages)
 
-    try:
-        # FIXED: Synchronized model tracking identifier path to stable production engine
-        model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash",
-            system_instruction=system_prompt
-        )
-
-        native_schema = {
-            "type": "OBJECT",
-            "properties": {
-                "is_jailbreak": {"type": "BOOLEAN"},
-                "out_of_scope": {"type": "BOOLEAN"},
-                "wants_comparison": {"type": "BOOLEAN"},
-                "comparison_targets": {
-                    "type": "ARRAY",
-                    "items": {"type": "STRING"}
-                },
-                "target_role": {"type": "STRING"},
-                "seniority_level": {"type": "STRING"},
-                "primary_missing_slot": {
-                    "type": "STRING",
-                    "enum": ["target_role", "seniority_level", "none"]
-                },
-                "context_complete": {"type": "BOOLEAN"}
+    native_schema = {
+        "type": "OBJECT",
+        "properties": {
+            "is_jailbreak": {"type": "BOOLEAN"},
+            "out_of_scope": {"type": "BOOLEAN"},
+            "wants_comparison": {"type": "BOOLEAN"},
+            "comparison_targets": {
+                "type": "ARRAY",
+                "items": {"type": "STRING"}
             },
-            "required": [
-                "is_jailbreak", 
-                "out_of_scope", 
-                "wants_comparison", 
-                "comparison_targets", 
-                "primary_missing_slot", 
-                "context_complete"
-            ]
-        }
+            "target_role": {"type": "STRING"},
+            "seniority_level": {"type": "STRING"},
+            "primary_missing_slot": {
+                "type": "STRING",
+                "enum": ["target_role", "seniority_level", "none"]
+            },
+            "context_complete": {"type": "BOOLEAN"}
+        },
+        "required": [
+            "is_jailbreak",
+            "out_of_scope",
+            "wants_comparison",
+            "comparison_targets",
+            "primary_missing_slot",
+            "context_complete"
+        ]
+    }
 
-        response = model.generate_content(
+    try:
+        manager = get_key_manager()
+        response = manager.generate_structured_with_rotation(
+            model_name="gemini-2.5-flash",
+            system_instruction=system_prompt,
             contents=f"Analyze this conversation history and populate the schema tracking values:\n\n{transcript}",
             generation_config=genai.GenerationConfig(
                 response_mime_type="application/json",
@@ -127,13 +106,12 @@ def extract_system_state(messages: List[Message]) -> FeatureTracker:
                 max_output_tokens=512,
             ),
         )
+        parsed = FeatureTracker.model_validate_json(response.text)
+        return parsed
 
-        if response and response.text:
-            parsed = FeatureTracker.model_validate_json(response.text)
-            return parsed
-
-        raise ValueError("Empty response received from Gemini SDK")
-
+    except GeminiKeysExhausted as exc:
+        logger.error("‼️  All Gemini keys exhausted in parser: %s", exc)
+        return DEFAULT_SAFE_STATE
     except Exception as exc:
-        logger.exception("Failed to extract system state from Gemini SDK: %s", exc)
+        logger.error("‼️  extract_system_state FAILED — returning DEFAULT_SAFE_STATE. Reason: %s", exc, exc_info=True)
         return DEFAULT_SAFE_STATE
