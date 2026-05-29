@@ -17,13 +17,19 @@ env_path = base_dir / ".env"
 print(f"\n--- [ENV DIAGNOSTIC] Checking path: {env_path.absolute()} ---")
 print(f"--- [ENV DIAGNOSTIC] Does file exist? {env_path.exists()} ---\n")
 
-load_dotenv(dotenv_path=env_path, override=True)
+load_dotenv(dotenv_path=env_path, override=False)
 
 # Verify keys loaded correctly
 import os
-_keys_raw = os.environ.get("GEMINI_API_KEYS", "NOT FOUND")
-_key_count = len([k for k in _keys_raw.split(",") if k.strip()]) if _keys_raw != "NOT FOUND" else 0
-print(f"--- [KEY DIAGNOSTIC] GEMINI_API_KEYS found: {_keys_raw != 'NOT FOUND'}, key count: {_key_count} ---\n")
+_keys_raw = os.environ.get("GEMINI_API_KEYS", "").strip()
+_single_key = os.environ.get("GEMINI_API_KEY", "").strip()
+if _keys_raw:
+    _key_count = len([k for k in _keys_raw.split(",") if k.strip()])
+elif _single_key:
+    _key_count = 1
+else:
+    _key_count = 0
+print(f"--- [KEY DIAGNOSTIC] Gemini key source found: {bool(_keys_raw or _single_key)}, key count: {_key_count} ---\n")
 
 # Delayed imports to guarantee environment context is populated prior to service compilation
 from app.routes import chat

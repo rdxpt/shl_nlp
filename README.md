@@ -345,11 +345,23 @@ pip install -r requirements.txt
 echo "GEMINI_API_KEY=your-api-key-here" > .env
 ```
 
+The runtime also accepts `GEMINI_API_KEYS` as a comma-separated list for key rotation.
+
 ### Start the API
 
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+### Start the Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Set `FASTAPI_BASE_URL` in `frontend/.env.local` to override the deployed backend at `https://rdxptshlnlp-dbyut.ondigitalocean.app`.
 
 ### Test Endpoint
 
@@ -372,6 +384,12 @@ Content-Type: application/json
 ```bash
 python eval_recall.py
 ```
+
+### Deploy Frontend To Vercel
+
+1. Deploy the `frontend/` folder as the Vercel project root.
+2. Set `FASTAPI_BASE_URL` in Vercel environment variables to the public FastAPI base URL, or keep the default deployed backend value.
+3. Keep the Next.js API routes enabled; they proxy `/api/chat` and `/api/health` to FastAPI's `/chat` and `/health` endpoints.
 
 ---
 
@@ -429,7 +447,7 @@ python eval_recall.py
 
 | Issue | Root Cause | Fix |
 |-------|-----------|-----|
-| `GEMINI_API_KEY not found` | Environment not loaded | Check `.env` file exists in project root; restart terminal |
+| `GEMINI_API_KEY not found` | Environment not loaded | Check `.env` file exists in project root; restart terminal. The app also supports `GEMINI_API_KEYS` for rotation. |
 | `Low recall on Java queries` | Synonym map missing JVM keywords | Edit `SYNONYM_MAP` in `search.py` with Java ecosystem terms |
 | `Jailbreak false positive` | Overly aggressive LLM prompt | Review parser system prompt in `extract_system_state()` |
 

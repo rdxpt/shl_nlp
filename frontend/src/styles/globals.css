@@ -1,0 +1,613 @@
+:root {
+  color-scheme: dark;
+  --bg: #06111d;
+  --bg-soft: #0c1727;
+  --panel: rgba(11, 19, 32, 0.78);
+  --panel-border: rgba(120, 145, 180, 0.2);
+  --text: #edf4ff;
+  --muted: #9eb0c7;
+  --accent: #7dd3fc;
+  --accent-strong: #38bdf8;
+  --accent-warm: #f59e0b;
+  --danger: #f87171;
+  --success: #34d399;
+  --shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+  --radius-xl: 28px;
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+  --max-width: 1440px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(245, 158, 11, 0.12), transparent 22%),
+    linear-gradient(180deg, #04101b 0%, #07121f 48%, #050b13 100%);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: transparent;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.appRoot {
+  position: relative;
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 32px;
+  display: grid;
+  gap: 18px;
+}
+
+.ambient {
+  position: fixed;
+  inset: auto;
+  width: 420px;
+  height: 420px;
+  filter: blur(22px);
+  opacity: 0.45;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ambientA {
+  top: -80px;
+  left: -120px;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.45), transparent 68%);
+}
+
+.ambientB {
+  right: -140px;
+  bottom: -120px;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.32), transparent 64%);
+}
+
+.panel {
+  position: relative;
+  z-index: 1;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.hero {
+  padding: 28px 30px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.8fr);
+  gap: 24px;
+  align-items: center;
+}
+
+.hero h1,
+.panelHeader h2 {
+  margin: 0;
+  font-size: clamp(1.7rem, 3vw, 3rem);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+}
+
+.heroCopy,
+.previewSubtle,
+.emptyState,
+.dropzoneHint,
+.messageCard p,
+.recommendationItem p {
+  color: var(--muted);
+}
+
+.heroStats {
+  display: grid;
+  gap: 12px;
+}
+
+.heroStat {
+  padding: 16px 18px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.heroStat span,
+.summaryCard span,
+.previewLabel,
+.messageMeta,
+.fieldLabel,
+.dropzoneTitle,
+.eyebrow {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+.heroStat strong,
+.summaryCard strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.eyebrow {
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+
+.tabBar {
+  padding: 10px;
+  display: inline-flex;
+  gap: 10px;
+  width: fit-content;
+}
+
+.tabButton,
+.toggleButton,
+.presetButton,
+.primaryButton {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 999px;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.tabButton,
+.toggleButton {
+  padding: 10px 16px;
+}
+
+.tabButton.active,
+.toggleButton.active {
+  background: rgba(125, 211, 252, 0.15);
+  border-color: rgba(125, 211, 252, 0.5);
+}
+
+.tabButton:hover,
+.toggleButton:hover,
+.presetButton:hover,
+.primaryButton:hover {
+  transform: translateY(-1px);
+}
+
+.chatShell,
+.matrixShell,
+.tokenizerShell {
+  padding: 24px;
+}
+
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.statusBadge,
+.chip,
+.summaryCard,
+.previewCard {
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.statusDot {
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: var(--danger);
+  box-shadow: 0 0 0 6px rgba(248, 113, 113, 0.1);
+}
+
+.statusDot.isHealthy {
+  background: var(--success);
+  box-shadow: 0 0 0 6px rgba(52, 211, 153, 0.12);
+}
+
+.statusDot.isDown {
+  background: var(--danger);
+}
+
+.chatGrid {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 18px;
+}
+
+.configColumn,
+.conversationColumn,
+.insightCard {
+  display: grid;
+  gap: 14px;
+}
+
+.configColumn {
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.configBlock {
+  display: grid;
+  gap: 8px;
+}
+
+.inputControl {
+  width: 100%;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(4, 9, 16, 0.72);
+  color: var(--text);
+  padding: 12px 14px;
+  outline: none;
+}
+
+.inputControl:focus {
+  border-color: rgba(125, 211, 252, 0.55);
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.1);
+}
+
+.textareaControl {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.sliderHeader,
+.composerActions,
+.conversationHeader,
+.recommendationItem,
+.summaryGrid,
+.insightGrid,
+.tokenizerGrid {
+  display: flex;
+  gap: 12px;
+}
+
+.sliderHeader,
+.conversationHeader {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.slider {
+  width: 100%;
+  accent-color: var(--accent-strong);
+}
+
+.previewCard {
+  padding: 16px;
+}
+
+.conversationColumn {
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.formatToggle,
+.chipRow,
+.presetRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.chip {
+  padding: 8px 12px;
+  color: var(--text);
+}
+
+.transcript {
+  height: 420px;
+  overflow: auto;
+  padding-right: 6px;
+  display: grid;
+  gap: 12px;
+}
+
+.messageCard {
+  padding: 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.messageCard.user {
+  border-color: rgba(125, 211, 252, 0.26);
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.messageCard.assistant {
+  border-color: rgba(245, 158, 11, 0.18);
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.messageCard.streaming {
+  position: relative;
+  overflow: hidden;
+}
+
+.messageCard.streaming::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent-strong), transparent);
+  animation: pulse 1.2s linear infinite;
+}
+
+.messageMeta {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.messageCard p {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
+.composer {
+  display: grid;
+  gap: 12px;
+}
+
+.composerInput {
+  min-height: 120px;
+}
+
+.composerActions {
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.primaryButton {
+  padding: 12px 18px;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.26), rgba(125, 211, 252, 0.12));
+}
+
+.primaryButton:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.presetButton {
+  padding: 10px 14px;
+}
+
+.insightGrid {
+  align-items: start;
+}
+
+.insightCard {
+  flex: 1;
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.jsonBox {
+  min-height: 140px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background: rgba(4, 9, 16, 0.68);
+  overflow: auto;
+}
+
+.jsonBox pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.recommendationList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.recommendationItem {
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.recommendationItem strong,
+.dropzoneTitle {
+  color: var(--text);
+}
+
+.emptyState {
+  margin: 0;
+}
+
+.summaryGrid {
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.summaryCard {
+  flex: 1 1 180px;
+  padding: 16px;
+}
+
+.tableWrap {
+  overflow: auto;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(4, 9, 16, 0.55);
+}
+
+.dataTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 820px;
+}
+
+.dataTable th,
+.dataTable td {
+  text-align: left;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dataTable th {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.tokenizerGrid {
+  gap: 16px;
+  align-items: stretch;
+}
+
+.dropzone,
+.tokenCanvas {
+  flex: 1;
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  border: 1px dashed rgba(125, 211, 252, 0.34);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.dropzone.active {
+  border-color: rgba(125, 211, 252, 0.75);
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.fileInput {
+  width: 100%;
+  margin-top: 16px;
+}
+
+.tokenCanvas {
+  display: grid;
+  gap: 14px;
+}
+
+.tokenTextarea {
+  min-height: 160px;
+}
+
+.tokenStream {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.tokenChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.tokenText {
+  font-weight: 600;
+}
+
+.tokenId {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+@keyframes pulse {
+  0% {
+    transform: translateX(-40%);
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(40%);
+    opacity: 0.2;
+  }
+}
+
+@media (max-width: 1100px) {
+  .hero,
+  .chatGrid,
+  .tokenizerGrid {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .insightGrid {
+    display: grid;
+  }
+}
+
+@media (max-width: 720px) {
+  .appRoot {
+    padding: 18px;
+  }
+
+  .hero,
+  .chatShell,
+  .matrixShell,
+  .tokenizerShell {
+    padding: 18px;
+  }
+
+  .composerActions,
+  .panelHeader,
+  .conversationHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tabBar {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
